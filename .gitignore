@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Downscaled image copies — regenerate with `python build/02_assemble.py --images`
+images/
+
+# Regenerable from the source project via build/00_extract.py
+data/candidates.parquet
+data/embeddings.parquet
+
+# Scratch
+build/_*.sh
+data/bench_*.jsonl
+
+# Secrets — never commit
+.env
+.env.local
+review/
+
+# Superseded label run, kept locally for build/compare_versions.py
+data/raw_labels.v2.bak.jsonl
