@@ -1,4 +1,4 @@
-# JWST Golden Dataset
+# JWST Image Pipeline
 
 An Airflow pipeline that ingests the NASA Webb Telescope's Flickr archive and turns it
 into a labelled dataset of real astronomical observations, separated from the far
@@ -24,7 +24,9 @@ conference photos from the decade before launch, and 247 more are
 
 Labelling them by their Flickr tags does not work. Flickr strips the spaces from
 tags, so a rule table matching `star cluster` or `black hole` never fires. An earlier
-version of this project did exactly that, with these results:
+version of this project,
+[jwst-flickr-classifier](https://github.com/RK-A1/jwst-flickr-classifier), did exactly
+that, with these results:
 
 - Globular clusters were filed as `star`.
 - Planetary nebulae and protoplanetary disks were filed as `exoplanet`, because a bare

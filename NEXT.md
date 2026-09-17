@@ -1,7 +1,8 @@
 # Where this left off
 
-Last worked on 17 September 2026. This repository now holds the whole pipeline: the
-Flickr ingest and embedding work from RK-A1/JWST, merged with its history, and the
+Last worked on 17 September 2026. This repository, renamed from `jwst-golden` that day,
+now holds the whole pipeline. It combines the Flickr ingest and embedding work from
+RK-A1/jwst-flickr-classifier (formerly `JWST`), merged with its history, with the
 labelling and dataset build that were here before. The published dataset is
 rebuilt by the pipeline. From the migrated warehouse it matched the previous build
 row for row, apart from two intended changes: `source_image_path`, a path on one
@@ -12,7 +13,7 @@ missing. A separate commit then corrected `instrument` on 115 rows.
 
 - **Warehouse:** migrated from the old pipeline's DuckDB file by
   `scripts/migrate_legacy_warehouse.py`. It holds 4,345 photos, 4,336 embeddings and
-  1,077 labels. The old file in `jwst-image-pipeline/include/` was left untouched.
+  1,077 labels. The old file in `jwst-flickr-classifier/include/` was left untouched.
 - **Images:** the 18 GB of originals were moved, not copied, into `include/data/images/`.
   The old repository no longer has them.
 - **Flickr is ahead of the warehouse.** The key in `.env` works. On 17 September Flickr

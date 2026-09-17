@@ -1,5 +1,5 @@
 """
-One-off bootstrap: build the warehouse from the jwst-image-pipeline database.
+One-off bootstrap: build the warehouse from the jwst-flickr-classifier database.
 
 That project stored embeddings as a column on photos, image paths with the Docker
 prefix /usr/local/airflow/include/images/, a keyword-derived canonical_label, and
@@ -11,7 +11,7 @@ classifier was trained on the tag labels this project replaced.
 
 Run once, on the host, after moving the legacy images into include/data/images:
 
-    python scripts/migrate_legacy_warehouse.py ../jwst-image-pipeline/include/jwst.duckdb
+    python scripts/migrate_legacy_warehouse.py ../jwst-flickr-classifier/include/jwst.duckdb
 """
 
 import argparse
