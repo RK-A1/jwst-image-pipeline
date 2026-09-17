@@ -4,6 +4,31 @@ version = "0.1.0"
 description = "Airflow pipeline that ingests NASA Webb photos from Flickr and builds a labelled dataset of real observations"
 requires-python = ">=3.10"
 
+# Host environment for running the tests and scripts outside Docker:
+#   pip install -e ".[dev]" \
+#     --constraint https://raw.githubusercontent.com/apache/airflow/constraints-3.1.6/constraints-3.10.txt
+# torch is omitted: the embedding test skips without it and runs under `astro dev pytest`.
+# The containers install requirements.txt instead; Astro requires that file at the root.
+[project.optional-dependencies]
+dev = [
+    "apache-airflow==3.1.6",
+    "duckdb==1.5.5",
+    "anthropic",
+    "numpy",
+    "pillow",
+    "requests",
+    "pytest",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Nothing to install: the code is imported from the project root, as it is in the
+# containers. This section exists only so the dev extra above can be installed.
+py-modules = []
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

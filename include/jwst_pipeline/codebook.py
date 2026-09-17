@@ -2,9 +2,9 @@
 The labelling codebook as code: the enums every label must fall within, the JSON
 schema the model is constrained to, and the system prompt.
 
-codebook.md is the human-readable specification and this module is what the model
+docs/codebook.md is the human-readable specification and this module is what the model
 actually sees. They duplicate the same rules, so tests/test_codebook.py checks that
-every enum value here is defined in codebook.md and named in the prompt. Bump
+every enum value here is defined in docs/codebook.md and named in the prompt. Bump
 CODEBOOK_VERSION whenever the prompt changes; every labelled row records it.
 """
 

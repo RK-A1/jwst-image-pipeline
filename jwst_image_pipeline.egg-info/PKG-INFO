@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: jwst-image-pipeline
+Version: 0.1.0
+Summary: Airflow pipeline that ingests NASA Webb photos from Flickr and builds a labelled dataset of real observations
+Requires-Python: >=3.10
+Provides-Extra: dev
+Requires-Dist: apache-airflow==3.1.6; extra == "dev"
+Requires-Dist: duckdb==1.5.5; extra == "dev"
+Requires-Dist: anthropic; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: pillow; extra == "dev"
+Requires-Dist: requests; extra == "dev"
+Requires-Dist: pytest; extra == "dev"

@@ -1,5 +1,5 @@
 """
-codebook.md is the specification and codebook.py is what the model is sent. The rules
+docs/codebook.md is the specification and codebook.py is what the model is sent. The rules
 live in both, so these tests fail when an enum value is added to one and not the other.
 """
 
@@ -10,9 +10,9 @@ from include.jwst_pipeline.config import PROJECT_ROOT
 
 
 def _section(number: int) -> str:
-    text = (PROJECT_ROOT / "codebook.md").read_text()
+    text = (PROJECT_ROOT / "docs" / "codebook.md").read_text()
     match = re.search(rf"^## {number}\. .*?(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
-    assert match, f"codebook.md has no section {number}"
+    assert match, f"docs/codebook.md has no section {number}"
     return match.group(0)
 
 

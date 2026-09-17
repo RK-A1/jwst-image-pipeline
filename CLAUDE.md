@@ -30,6 +30,11 @@ python scripts/compare_label_runs.py # diff two label runs after a codebook chan
 - `include/data/` — all state. Only `dataset/` outputs and `labels/raw_labels.jsonl`
   are tracked in git; the warehouse and the 18 GB of images are local.
 - `tests/` — `conftest.py` points `JWST_DATA_DIR` at a temp dir for every test.
+- `docs/` — `codebook.md` (the labelling spec) and `NEXT.md` (state and open work).
+- Root files are kept to what has to be there: Astro requires `Dockerfile`,
+  `requirements.txt`, `packages.txt` (empty, but the image build copies it) and
+  `airflow_settings.yaml`. Host dev dependencies live in `pyproject.toml` as the
+  `dev` extra, not a second requirements file.
 
 ## Rules that are easy to break
 
@@ -46,15 +51,15 @@ python scripts/compare_label_runs.py # diff two label runs after a codebook chan
 - **The label log is append-only and is the system of record.** Never rewrite or
   truncate `raw_labels.jsonl`; relabel by appending, since the latest record per
   photo wins.
-- **`codebook.md` and `include/jwst_pipeline/codebook.py` must agree.** Change both,
+- **`docs/codebook.md` and `include/jwst_pipeline/codebook.py` must agree.** Change both,
   bump `CODEBOOK_VERSION`, and run `tests/test_codebook.py`.
 - **Keep `strict: True` on the labelling tool.** Without it, enum values are advisory.
 - **Never put a requests exception message in a log or result without redacting it.**
   Flickr's API key is a query parameter.
 - **`PIL.Image.MAX_IMAGE_PIXELS = None`** is needed for JWST originals; use
   `images.open_rgb` / `images.verify` rather than opening images directly.
-- **The DuckDB version is pinned** in both requirements files, because host and
-  container must read the same storage format.
+- **The DuckDB version is pinned** in `requirements.txt` and in the `dev` extra,
+  because host and container must read the same storage format.
 
 ## Environment
 

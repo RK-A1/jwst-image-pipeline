@@ -71,7 +71,7 @@ Haiku 4.5 caches only prompts of 4,096 tokens or more, and these prompts average
 tokens, image included. The `cache_control` marker is harmless but does nothing. Do
 not pad the prompt to reach the threshold; at this volume the saving is cents.
 
-**`codebook.md`'s revision log stops at v2**, while the labels were produced at v6. The
+**`docs/codebook.md`'s revision log stops at v2**, while the labels were produced at v6. The
 changes from v3 to v6 touched modality and instrument, per the old NEXT.md, but were
 never written up. Reconstruct them from `scripts/compare_label_runs.py` and the v2
 backup in `include/data/labels/archive/` before the codebook changes again.

@@ -17,7 +17,7 @@ photos from their Flickr tags. Flickr strips the spaces out of tags, so rules li
 `exoplanet`, and no photo was ever labelled `black_hole`.
 
 This pipeline has Claude Haiku 4.5 label each photo from its caption and image instead,
-against the definitions in [`codebook.md`](codebook.md). The image matters: one
+against the definitions in [`codebook.md`](docs/codebook.md). The image matters: one
 Sagittarius A* caption describes real Webb observing time, but the picture itself is
 marked "Artist's Concept".
 
@@ -74,7 +74,7 @@ and a Flickr API key. Labelling also needs an Anthropic API key.
 ```bash
 cp .env.example .env     # FLICKR_API_KEY, plus ANTHROPIC_API_KEY for labelling
 astro dev start          # Airflow UI at http://localhost:8080
-astro dev pytest         # run the tests
+astro dev pytest         # run the tests (host alternative: pip install -e ".[dev]")
 ```
 
 Unpause `jwst_ingest`, `jwst_embed` and `jwst_dataset`, then label when there is
@@ -91,7 +91,7 @@ photos in `rejected.parquet` (and `.csv`), and a `manifest.json` of counts and c
 
 | Field | Meaning |
 |---|---|
-| `subject` | One of 13 classes, from `galaxy` to `black_hole`, defined in `codebook.md` |
+| `subject` | One of 13 classes, from `galaxy` to `black_hole`, defined in `docs/codebook.md` |
 | `modality` | `image`, `annotated_image`, `spectrum_or_plot` or `comparison_composite` |
 | `object_name`, `object_name_normalized` | Catalogue name as written, and in canonical form (`M51` = `Messier 51`) |
 | `instrument` | NIRCam, MIRI, NIRSpec, NIRISS, FGS, multiple, non-Webb or unknown |
@@ -123,5 +123,6 @@ include/data/dataset/    the published dataset (tracked)
 include/data/labels/     every model response (tracked)
 scripts/                 one-off legacy migration, label-run comparison
 tests/                   unit, integration and DAG structure tests
-codebook.md              the label definitions the model is prompted with
+docs/codebook.md         the label definitions the model is prompted with
+docs/NEXT.md             current state and open work
 ```
