@@ -97,6 +97,42 @@ def canonical_name(s: str | None) -> str | None:
     return out
 
 
+# ── instrument ──────────────────────────────────────────────────────────────────
+
+# Each Webb instrument by acronym or full name, as captions use both.
+_INSTRUMENT_PATTERNS = {
+    "NIRCam": r"\bNIRCam\b|\bnear[\s-]?infrared\s+camera\b",
+    "MIRI": r"\bMIRI\b|\bmid[\s-]?infrared\s+instrument\b",
+    "NIRSpec": r"\bNIRSpec\b|\bnear[\s-]?infrared\s+spectrograph\b",
+    "NIRISS": r"\bNIRISS\b|\bnear[\s-]?infrared\s+imager\s+and\s+slitless\s+spectrograph\b",
+    "FGS": r"\bFGS\b|\bfine\s+guidance\s+sensor\b",
+}
+
+
+def named_instruments(title: str | None, description: str | None) -> list[str]:
+    from include.jwst_pipeline.labelling import clean_caption
+
+    text = f"{title or ''} {clean_caption(description)}"
+    return [name for name, pattern in _INSTRUMENT_PATTERNS.items()
+            if re.search(pattern, text, re.IGNORECASE)]
+
+
+def correct_instrument(value: str, title: str | None, description: str | None) -> str:
+    """
+    Enforce the codebook's rule that `multiple` needs two or more Webb instruments named
+    in the caption. The model reaches for `multiple` on multi-observatory releases
+    ("Hubble and Webb") that name none, so a `multiple` backed by fewer than two names
+    becomes the one instrument named, or `unknown`. Other values are left alone: this
+    only ever removes a claim the text does not support.
+    """
+    if value != "multiple":
+        return value
+    named = named_instruments(title, description)
+    if len(named) >= 2:
+        return "multiple"
+    return named[0] if named else "unknown"
+
+
 # ── grouping ────────────────────────────────────────────────────────────────────
 
 _QUALIFIER = re.compile(r"\s*[\(\[][^)\]]*[)\]]\s*")
@@ -177,6 +213,18 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> dict:
             for pid, title, desc, name in named
         ])
 
+    # The model's raw instrument stays in the label log; the dataset gets the corrected one.
+    multiple = con.execute("""
+        SELECT p.photo_id, p.title, p.description
+        FROM photos p JOIN labels l USING (photo_id)
+        WHERE l.instrument = 'multiple'
+    """).fetchall()
+    con.execute("CREATE OR REPLACE TEMP TABLE instrument_fix (photo_id VARCHAR, instrument VARCHAR)")
+    if multiple:
+        con.executemany("INSERT INTO instrument_fix VALUES (?, ?)", [
+            (pid, correct_instrument("multiple", title, desc)) for pid, title, desc in multiple
+        ])
+
     # Three levels of grouping, because each misses what the others catch:
     #   object_name_normalized : every image of this object          (coarsest)
     #   release_group          : one press release / figure set      (the useful one)
@@ -219,7 +267,8 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> dict:
             l.subject, l.modality, l.object_name,
             v.object_name_normalized,
             coalesce(v.object_name_verified, l.object_name IS NULL) AS object_name_verified,
-            l.instrument, l.confidence, l.rationale, l.gate_category,
+            coalesce(f.instrument, l.instrument)              AS instrument,
+            l.confidence, l.rationale, l.gate_category,
             g.release_group, g.near_duplicate_group, g.is_primary,
             p.tags                                            AS flickr_tags,
             p.date_taken,
@@ -232,6 +281,7 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> dict:
         FROM photos p
         JOIN labels l USING (photo_id)
         LEFT JOIN verif v USING (photo_id)
+        LEFT JOIN instrument_fix f USING (photo_id)
         LEFT JOIN grouping g USING (photo_id)
         LEFT JOIN embeddings e USING (photo_id)
         LEFT JOIN images_present i ON i.image_file = p.photo_id || '.jpg'

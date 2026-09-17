@@ -135,3 +135,28 @@ def test_prune_removes_images_of_photos_no_longer_kept(small_warehouse):
     labelling.load_log(small_warehouse, paths().label_log)
     assert assemble.prune_images(small_warehouse) == 1
     assert not (paths().dataset_images / "20.jpg").exists()
+
+
+@pytest.mark.parametrize("value, title, description, expected", [
+    ("multiple", "Cartwheel Galaxy - Hubble and Webb", "Multi-observatory view.", "unknown"),
+    ("multiple", "Titan (NIRCam and NIRC-2)", "Keck and Webb.", "NIRCam"),
+    ("multiple", "Cosmic Cliffs", "Imaged with <b>NIRCam</b> and the Mid-Infrared Instrument.",
+     "multiple"),
+    ("multiple", "Phantom Galaxy", "Data from the near-infrared spectrograph.", "NIRSpec"),
+    ("MIRI", "No instrument named here", "", "MIRI"),        # only `multiple` is corrected
+    ("unknown", "NIRCam and MIRI", "", "unknown"),
+])
+def test_correct_instrument(value, title, description, expected):
+    assert assemble.correct_instrument(value, title, description) == expected
+
+
+def test_build_publishes_the_corrected_instrument_and_logs_the_raw_one(small_warehouse):
+    labelling.append_log(paths().label_log, label_record(
+        "20", subject="supernova_remnant", instrument="multiple"))
+    labelling.load_log(small_warehouse, paths().label_log)
+    staged = paths().staging / "instrument"
+    assemble.build(small_warehouse, staged)
+    kept = {r["photo_id"]: r for r in read(staged / "jwst_space_images.parquet")}
+    assert kept["20"]["instrument"] == "unknown"
+    assert small_warehouse.execute(
+        "SELECT instrument FROM labels WHERE photo_id = '20'").fetchone()[0] == "multiple"

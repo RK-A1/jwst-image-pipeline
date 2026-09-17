@@ -3,9 +3,10 @@
 Last worked on 17 September 2026. This repository now holds the whole pipeline: the
 Flickr ingest and embedding work from RK-A1/JWST, merged with its history, and the
 labelling and dataset build that were here before. The published dataset is
-unchanged in substance. Rebuilt from the migrated warehouse, it matched the previous
-build row for row, apart from two intended changes. `source_image_path`, a path on one
-laptop, became `image_file`. Photo 55252854454 gained the embedding it had been missing.
+rebuilt by the pipeline. From the migrated warehouse it matched the previous build
+row for row, apart from two intended changes: `source_image_path`, a path on one
+laptop, became `image_file`, and photo 55252854454 gained the embedding it had been
+missing. A separate commit then corrected `instrument` on 115 rows.
 
 ## State
 
@@ -27,7 +28,7 @@ laptop, became `image_file`. Photo 55252854454 gained the embedding it had been 
 ## Verified, and not yet verified
 
 `jwst_dataset` and `jwst_embed` were run end to end with `airflow dags test` on the host
-against the real warehouse, and all 71 tests pass on the host with torch installed.
+against the real warehouse, and all 78 tests pass on the host with torch installed.
 **The DAGs have not yet run under `astro dev start`.** Docker Desktop would not start
 during that session. The first thing to do is:
 
@@ -57,9 +58,12 @@ boundaries. When the correction rate is known, put it in the README.
 
 ## Known defects, in priority order
 
-**`instrument = multiple` is wrong on about 101 rows.** The model reaches for `multiple`
-on multi-observatory releases even when the caption names no Webb instrument. This
-can be corrected deterministically from the caption text, with no relabelling.
+**`instrument` still has 11 unsupported single values.** The build now corrects
+`multiple` from the caption text (`assemble.correct_instrument`), which changed 115 of
+156 rows: 96 to `unknown`, 11 to NIRCam, 5 to MIRI and 3 to NIRSpec. That rule only
+touches `multiple`. Seven rows say MIRI and four say NIRCam although their captions
+never name them. Those values may come from text printed on the image, so they were
+left alone. Check them on the review sheet before extending the rule.
 
 **Prompt caching has never worked.** `cache_read_tokens` is 0 on all 1,077 calls. Claude
 Haiku 4.5 caches only prompts of 4,096 tokens or more, and these prompts average 3,886

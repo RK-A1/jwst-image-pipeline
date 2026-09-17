@@ -200,7 +200,11 @@ five dollars; new photos cost about half a cent each.
   that samples rows across subject classes for hand-checking.
 - **`confidence` carries no information.** Every kept row came back `high`.
 - **`instrument` is the weakest field.** The model reaches for `multiple` on
-  multi-observatory releases even when the caption names no Webb instrument.
+  multi-observatory releases that name no Webb instrument. The build therefore keeps
+  `multiple` only where the caption names two or more instruments, and otherwise
+  substitutes the one it names, or `unknown`. That corrected 115 of 156 rows. The
+  model's raw answer stays in the label log. Eleven rows still name a single
+  instrument that their caption never mentions.
 - **`subject` is single-label**, although many images genuinely contain several kinds
   of object. The label reflects what the caption presents as the subject.
 - **`date_taken` is passed through unmodified** and is unreliable.
