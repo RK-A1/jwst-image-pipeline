@@ -16,11 +16,10 @@ published data. Images: NASA, ESA, CSA, STScI.*
 
 ## Why
 
-An earlier version,
-[jwst-flickr-classifier](https://github.com/RK-A1/jwst-flickr-classifier), labelled
-photos from their Flickr tags. Flickr strips the spaces out of tags, so rules like
-`star cluster` never matched. Globular clusters became `star`, planetary nebulae became
-`exoplanet`, and no photo was ever labelled `black_hole`.
+Labelling these photos from their Flickr tags does not work. Flickr strips the spaces
+out of tags, so rules like `star cluster` never match. Tag-based labelling filed
+globular clusters as `star` and planetary nebulae as `exoplanet`, and never once used
+`black_hole`.
 
 This pipeline has Claude Haiku 4.5 label each photo from its caption and image instead,
 against the definitions in [`codebook.md`](docs/codebook.md). The image matters: one
