@@ -1,0 +1,25 @@
+# Astro Runtime includes the following pre-installed providers packages: https://www.astronomer.io/docs/astro/runtime-image-architecture#provider-packages
+
+# Flickr API
+flickrapi>=2.4
+
+# Database
+duckdb>=1.2
+
+# ML / deep learning
+torch>=2.2
+torchvision>=0.17
+xgboost>=2.0
+scikit-learn>=1.4
+
+# Image handling
+Pillow>=10.0
+
+# Data
+pandas>=2.0
+
+# App
+streamlit>=1.35
+plotly>=5.0
+
+astro-run-dag # This package is needed for the astro run command. It will be removed before a deploy
