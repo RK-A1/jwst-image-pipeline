@@ -160,3 +160,35 @@ def test_build_publishes_the_corrected_instrument_and_logs_the_raw_one(small_war
     assert kept["20"]["instrument"] == "unknown"
     assert small_warehouse.execute(
         "SELECT instrument FROM labels WHERE photo_id = '20'").fetchone()[0] == "multiple"
+
+
+def test_rejected_accounts_for_photos_the_model_never_saw(small_warehouse, add_photo):
+    """A photo dated before launch is never labelled, and must still appear with a
+    reason: otherwise the dataset silently omits three quarters of the archive."""
+    add_photo("40", title="Mirror segment, 2017", date_taken="2017-03-01 00:00:00")
+    add_photo("50", title="Waiting for a label", date_taken="2024-08-01 00:00:00")
+
+    staged = paths().staging / "excluded"
+    manifest = assemble.build(small_warehouse, staged)
+    rejected = {r["photo_id"]: r for r in read(staged / "rejected.parquet")}
+
+    assert rejected["40"]["rejected_as"] == "dated_before_launch"
+    assert rejected["40"]["rejected_by"] == "rule"
+    assert rejected["30"]["rejected_by"] == "model"          # gated out by the model
+    assert "50" not in rejected                              # eligible, still pending
+    assert manifest["pending"] == 1
+    assert manifest["rows"]["rejected"] + manifest["rows"]["jwst_space_images"] \
+        + manifest["pending"] == manifest["photos"] == 6
+    assemble.audit(staged)
+
+
+def test_audit_fails_when_photos_go_missing_from_both_files(small_warehouse, add_photo):
+    staged = paths().staging / "leak"
+    assemble.build(small_warehouse, staged)
+    # A photo that appears in neither file and is not counted as pending.
+    import json
+    manifest = json.loads((staged / "manifest.json").read_text())
+    manifest["photos"] += 5
+    (staged / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(quality.DataQualityError, match="account for every photo"):
+        assemble.audit(staged)

@@ -1,7 +1,13 @@
 {
   "rows": {
     "jwst_space_images": 481,
-    "rejected": 596
+    "rejected": 3864
+  },
+  "photos": 4345,
+  "pending": 0,
+  "rejected_by": {
+    "model": 596,
+    "rule": 3268
   },
   "labels": 1077,
   "subjects": {
@@ -27,7 +33,7 @@
   "sha256": {
     "jwst_space_images.parquet": "509507f35322bc36ebc20c3c624e1b30dbcbc276435c4811adddf01f7b55fb6c",
     "jwst_space_images.csv": "79a9b12c4921c9d20ded0c81520c48c9792c89d955b29a26d6de5da00e0fee20",
-    "rejected.parquet": "5990ce2a2e511066286f1404204f626f45c698aac1f1461deed2953b41181fb3",
-    "rejected.csv": "ffa376cfc0547b6ec01eca0fca86b546ebc9337b996142fb1fa7933476cc018c"
+    "rejected.parquet": "2709bfe14a5fa3ce1ad7bc1c87627868516e9fa2f25b692c8656c7606ead26a5",
+    "rejected.csv": "d730e7862487531a75ecd7b3c051132bbdab4c5ed46f772bf57078a3c788ecc0"
   }
 }

@@ -5,8 +5,8 @@ labelled dataset of real astronomical observations. Most of the account's 4,000+
 photos are hardware, events and artwork. The pipeline separates out the observations
 and labels each one by subject, modality, object and instrument.
 
-**Output:** [481 labelled observations](include/data/dataset), plus the 596 rejected
-photos, each with a reason.
+**Output:** [481 labelled observations](include/data/dataset), plus the other 3,864
+photos with the reason each one was excluded.
 
 ![Observations from the dataset, cycling through nine images](docs/images/gallery.webp)
 
@@ -89,8 +89,13 @@ astro dev run dags trigger jwst_label --conf '{"max_photos": 50}'
 
 ## The dataset
 
-`include/data/dataset/` holds `jwst_space_images.parquet` (and `.csv`), the rejected
-photos in `rejected.parquet` (and `.csv`), and a `manifest.json` of counts and checksums.
+`include/data/dataset/` holds `jwst_space_images.parquet` (and `.csv`), every excluded
+photo in `rejected.parquet` (and `.csv`), and a `manifest.json` of counts and checksums.
+
+Nothing is left unaccounted for: 481 kept, plus 3,864 rejected, matches the 4,345 photos
+ingested. `rejected_by` says which judgement excluded each one — `model` for the 596 the
+model gated out as hardware, events, artwork or promotion, and `rule` for the 3,268 dated
+before launch, which are never sent to the model at all.
 
 | Field | Meaning |
 |---|---|
@@ -112,8 +117,9 @@ provenance.
 - **`instrument` is the weakest field.** `multiple` is corrected from the caption text,
   but 11 rows still name an instrument their caption never mentions.
 - **`subject` is single-label**, and `date_taken` is Flickr's, unmodified.
-- **Early-dated photos are skipped.** Photos dated before launch are not labelled, so an
-  observation with a wrong early date would be missed.
+- **The 3,268 pre-launch photos are excluded on their date alone**, without ever being
+  looked at, so an observation misdated into the past would be missed. They are listed in
+  `rejected.parquet` as `dated_before_launch`.
 - **Press images, not science data.** They suit classification and similarity work, but
   not photometry.
 

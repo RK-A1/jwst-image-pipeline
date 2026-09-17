@@ -59,6 +59,11 @@ boundaries. When the correction rate is known, put it in the README.
 
 ## Known defects, in priority order
 
+**The 3,268 pre-launch photos have never been looked at.** They are excluded by date
+alone and published in `rejected.parquet` as `dated_before_launch`. Spot-checking a
+sample would either confirm the cutoff or find observations hiding behind a wrong date.
+Labelling all of them would cost about $16.
+
 **`instrument` still has 11 unsupported single values.** The build now corrects
 `multiple` from the caption text (`assemble.correct_instrument`), which changed 115 of
 156 rows: 96 to `unknown`, 11 to NIRCam, 5 to MIRI and 3 to NIRSpec. That rule only

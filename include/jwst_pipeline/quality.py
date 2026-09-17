@@ -120,7 +120,7 @@ LABEL_CHECKS = [
 ]
 
 
-def dataset_checks(expected_labels: int, published_rows: int | None, allow_shrink: bool) -> list[Check]:
+def dataset_checks(manifest: dict, published_rows: int | None, allow_shrink: bool) -> list[Check]:
     """
     Audit a staged dataset before it is published. Runs against views named `kept`
     and `rejected` over the staged files.
@@ -132,9 +132,11 @@ def dataset_checks(expected_labels: int, published_rows: int | None, allow_shrin
               "SELECT count(*) - count(DISTINCT photo_id) FROM kept"),
         Check("no photo is both kept and rejected",
               "SELECT count(*) FROM kept SEMI JOIN rejected USING (photo_id)"),
-        Check("kept and rejected together account for every label",
+        Check("kept, rejected and pending account for every photo",
               f"SELECT abs((SELECT count(*) FROM kept) + (SELECT count(*) FROM rejected) "
-              f"- {int(expected_labels)})"),
+              f"+ {int(manifest['pending'])} - {int(manifest['photos'])})"),
+        Check("every rejection says what rejected it",
+              "SELECT count(*) FROM rejected WHERE rejected_by NOT IN ('model', 'rule')"),
         Check("subject is a codebook value",
               f"SELECT count(*) FROM kept WHERE subject NOT IN "
               f"({_in([s for s in codebook.SUBJECTS if s != codebook.NOT_APPLICABLE])})"),

@@ -20,7 +20,7 @@ from pathlib import Path
 import duckdb
 
 from include.jwst_pipeline import codebook, images, quality
-from include.jwst_pipeline.config import FLICKR_USER, image_file_name, paths
+from include.jwst_pipeline.config import FLICKR_USER, LAUNCH_DATE, image_file_name, paths
 
 log = logging.getLogger(__name__)
 
@@ -297,10 +297,33 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> dict:
               ORDER BY photo_id)
         TO '{out_dir / f"{KEPT}.parquet"}' (FORMAT parquet)
     """)
+    # Photos the model never saw, so that kept + rejected accounts for the whole archive.
+    # A photo dated before launch is excluded by rule; see config.LAUNCH_DATE. Anything
+    # else without a label is pending, not rejected, and is counted in the manifest.
     con.execute(f"""
-        COPY (SELECT photo_id, title, gate_category AS rejected_as, rationale,
+        CREATE OR REPLACE TEMP VIEW rule_excluded AS
+        SELECT p.photo_id, p.title,
+               'dated_before_launch'                            AS rejected_as,
+               'rule'                                           AS rejected_by,
+               NULL                                             AS rationale,
+               p.date_taken,
+               'https://www.flickr.com/photos/{FLICKR_USER}/' || p.photo_id AS flickr_url,
+               p.legacy_tag_label                               AS source_tag_label
+        FROM photos p LEFT JOIN labels l USING (photo_id)
+        WHERE l.photo_id IS NULL AND p.date_taken < CAST('{LAUNCH_DATE}' AS TIMESTAMP)
+    """)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP VIEW all_rejected AS
+        SELECT photo_id, title, gate_category AS rejected_as, 'model' AS rejected_by,
+               rationale, date_taken, flickr_url, source_tag_label
+        FROM labelled WHERE gate_category <> '{codebook.KEEP_GATE}'
+        UNION ALL BY NAME
+        SELECT * FROM rule_excluded
+    """)
+    con.execute(f"""
+        COPY (SELECT photo_id, title, rejected_as, rejected_by, rationale,
                      date_taken, flickr_url, source_tag_label
-              FROM labelled WHERE gate_category <> '{codebook.KEEP_GATE}' ORDER BY photo_id)
+              FROM all_rejected ORDER BY photo_id)
         TO '{out_dir / f"{REJECTED}.parquet"}' (FORMAT parquet)
     """)
 
@@ -320,10 +343,9 @@ def build(con: duckdb.DuckDBPyConnection, out_dir: Path) -> dict:
         TO '{out_dir / f"{KEPT}.csv"}' (HEADER, DELIMITER ',')
     """)
     con.execute(f"""
-        COPY (SELECT photo_id, gate_category AS rejected_as, title, rationale,
+        COPY (SELECT photo_id, rejected_as, rejected_by, title, rationale,
                      flickr_url, date_taken, source_tag_label
-              FROM labelled WHERE gate_category <> '{codebook.KEEP_GATE}'
-              ORDER BY gate_category, photo_id)
+              FROM all_rejected ORDER BY rejected_as, photo_id)
         TO '{out_dir / f"{REJECTED}.csv"}' (HEADER, DELIMITER ',')
     """)
 
@@ -343,6 +365,14 @@ def _manifest(con: duckdb.DuckDBPyConnection, out_dir: Path) -> dict:
             KEPT: con.execute(f"SELECT count(*) FROM '{out_dir / f'{KEPT}.parquet'}'").fetchone()[0],
             REJECTED: con.execute(f"SELECT count(*) FROM '{out_dir / f'{REJECTED}.parquet'}'").fetchone()[0],
         },
+        "photos": con.execute("SELECT count(*) FROM photos").fetchone()[0],
+        # Ingested, eligible, and not labelled yet: absent from both files by design.
+        "pending": con.execute(f"""
+            SELECT count(*) FROM photos p LEFT JOIN labels l USING (photo_id)
+            WHERE l.photo_id IS NULL
+              AND (p.date_taken IS NULL OR p.date_taken >= CAST('{LAUNCH_DATE}' AS TIMESTAMP))
+        """).fetchone()[0],
+        "rejected_by": counts("SELECT rejected_by, count(*) FROM all_rejected GROUP BY 1 ORDER BY 1"),
         "labels": con.execute("SELECT count(*) FROM labels").fetchone()[0],
         "subjects": counts(f"SELECT subject, count(*) FROM labelled "
                            f"WHERE gate_category = '{codebook.KEEP_GATE}' GROUP BY 1 ORDER BY 1"),
@@ -412,7 +442,7 @@ def audit(staged: Path, *, allow_shrink: bool = False) -> list[quality.Result]:
     try:
         con.execute(f"CREATE VIEW kept AS SELECT * FROM '{staged / f'{KEPT}.parquet'}'")
         con.execute(f"CREATE VIEW rejected AS SELECT * FROM '{staged / f'{REJECTED}.parquet'}'")
-        checks = quality.dataset_checks(manifest["labels"], published_rows, allow_shrink)
+        checks = quality.dataset_checks(manifest, published_rows, allow_shrink)
         checks.append(quality.Check(
             "CSV and parquet row counts agree",
             lambda c: abs(
