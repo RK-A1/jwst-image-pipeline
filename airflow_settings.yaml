@@ -1,4 +1,10 @@
+# Loaded by `astro dev start`. Local development only.
 airflow:
   connections: []
-  pools: []
+  pools:
+    - pool_name: duckdb_warehouse
+      pool_slot: 1
+      pool_description: >-
+        Serialises every task that opens the DuckDB warehouse. DuckDB allows one
+        writing process, and that writer locks out readers in other processes too.
   variables: []

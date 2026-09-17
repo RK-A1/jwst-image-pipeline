@@ -1,25 +1,14 @@
-# Astro Runtime includes the following pre-installed providers packages: https://www.astronomer.io/docs/astro/runtime-image-architecture#provider-packages
+# Installed into the Astro Runtime image, which already provides Airflow.
+# CPU builds of torch: Docker Desktop on a Mac gives containers no GPU, and the CUDA
+# wheels add gigabytes to the image for nothing.
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-# Flickr API
-flickrapi>=2.4
+# Pinned exactly: the host tools and the containers must agree on the DuckDB storage format.
+duckdb==1.5.5
 
-# Database
-duckdb>=1.2
-
-# ML / deep learning
-torch>=2.2
-torchvision>=0.17
-xgboost>=2.0
-scikit-learn>=1.4
-
-# Image handling
-Pillow>=10.0
-
-# Data
-pandas>=2.0
-
-# App
-streamlit>=1.35
-plotly>=5.0
-
-astro-run-dag # This package is needed for the astro run command. It will be removed before a deploy
+anthropic>=0.50
+numpy>=1.26
+pillow>=10.0
+requests>=2.31
+torch>=2.5,<3
+torchvision>=0.20

@@ -1,122 +1,109 @@
 # Where this left off
 
-Last worked on 13 September 2026. The dataset is built, committed and pushed to
-`RK-A1/jwst-golden` (private). Everything below is what remains.
+Last worked on 17 September 2026. This repository now holds the whole pipeline: the
+Flickr ingest and embedding work from RK-A1/JWST, merged with its history, and the
+labelling and dataset build that were here before. The published dataset is
+unchanged in substance. Rebuilt from the migrated warehouse, it matched the previous
+build row for row, apart from two intended changes. `source_image_path`, a path on one
+laptop, became `image_file`. Photo 55252854454 gained the embedding it had been missing.
 
 ## State
 
-481 observations labelled at codebook v6, out of 1,077 candidates drawn from the 4,345
-photos in [RK-A1/JWST](https://github.com/RK-A1/JWST). All 13 subject classes have
-members. Total API spend was about $8.20; roughly $1.80 of the original $10 credit
-remains, so anything costing more than that needs a top-up first.
+- **Warehouse:** migrated from the old pipeline's DuckDB file by
+  `scripts/migrate_legacy_warehouse.py`. It holds 4,345 photos, 4,336 embeddings and
+  1,077 labels. The old file in `jwst-image-pipeline/include/` was left untouched.
+- **Images:** the 18 GB of originals were moved, not copied, into `include/data/images/`.
+  The old repository no longer has them.
+- **Flickr is ahead of the warehouse.** The key in `.env` works. On 17 September Flickr
+  listed 4,402 photos against the warehouse's 4,345, so 57 are new since the last
+  ingest on 7 May. The most recent are real observations. Nothing has been ingested
+  since then, by decision: no API calls were made during the migration.
+- **Nine legacy images are truncated** (one is empty) and marked for download again.
+  The first `jwst_ingest` run fetches them.
+- **Three image files have no photo row:** 52504493014, 52693571483, 53061873589.
+  They are probably downloads whose insert failed in the old pipeline. They are
+  harmless, and the next ingest will add rows for them if Flickr still lists them.
 
-The source project was never modified. Its DuckDB was read once, read-only.
+## Verified, and not yet verified
+
+`jwst_dataset` and `jwst_embed` were run end to end with `airflow dags test` on the host
+against the real warehouse, and all 71 tests pass on the host with torch installed.
+**The DAGs have not yet run under `astro dev start`.** Docker Desktop would not start
+during that session. The first thing to do is:
+
+```bash
+astro dev start          # check the duckdb_warehouse pool exists in Admin → Pools
+astro dev pytest         # includes the torch test that skips on the host
+```
+
+`jwst_ingest` and `jwst_label` have only been tested against fakes, because both call
+external APIs.
+
+## Next run, in order
+
+1. Unpause `jwst_ingest`, `jwst_embed`, `jwst_dataset`. The ingest picks up the 57 new
+   photos and the 9 re-downloads, and the embed DAG follows on its own.
+2. With an Anthropic key in `.env`, trigger `jwst_label`. About 57 photos at half a
+   cent each is roughly $0.30. `jwst_dataset` then rebuilds and publishes.
+3. Commit `include/data/labels/raw_labels.jsonl` and `include/data/dataset/`.
 
 ## The one thing that actually matters
 
 **Nobody has checked the labels.** They are model-generated and no accuracy figure
-exists. `build/03_review.py` builds an HTML sheet that samples 100 rows stratified
-across subject classes, shows each image beside its label, rationale and caption, and
-lets you tick anything wrong and copy out the corrections as JSON.
-
-The sheet currently on disk was generated against the older v2 labels, so regenerate
-it before using it:
-
-```bash
-python build/03_review.py --n 100
-open review/review.html
-```
-
-Two things to look at particularly: the 13 rows where `object_name_verified` is false,
-and the `galaxy` / `nebula` / `deep_field` boundaries, which is where the codebook
-does the most work and where the labels are least certain. When the correction rate is
-known, put it in the README's limitations section, which currently claims no accuracy
-figure at all.
+exists. Every `jwst_dataset` run now regenerates `include/data/review/review.html`,
+a sample of 100 rows stratified across subject classes. Look first at the 13 rows where
+`object_name_verified` is false, and at the `galaxy` / `nebula` / `deep_field`
+boundaries. When the correction rate is known, put it in the README.
 
 ## Known defects, in priority order
 
-**`instrument = multiple` is wrong on about 101 rows.** Codebook v6 improved this from
-181 wrong to 101, but the model still reaches for `multiple` on multi-observatory
-releases even when the caption names no Webb instrument. The rule says `unknown` is
-correct when nothing is named.
+**`instrument = multiple` is wrong on about 101 rows.** The model reaches for `multiple`
+on multi-observatory releases even when the caption names no Webb instrument. This
+can be corrected deterministically from the caption text, with no relabelling.
 
-This does not need another labelling pass. Every one of those rows can be corrected
-deterministically, because the caption text is already in the dataset: if
-`instrument = 'multiple'` and the title and description together name fewer than two
-of NIRCam, MIRI, NIRSpec, NIRISS or FGS, the value should be the single named
-instrument, or `unknown` if none is named. That is a post-processing step in
-`02_assemble.py` and costs nothing. It is the highest-value cheap fix left.
+**Prompt caching has never worked.** `cache_read_tokens` is 0 on all 1,077 calls. Claude
+Haiku 4.5 caches only prompts of 4,096 tokens or more, and these prompts average 3,886
+tokens, image included. The `cache_control` marker is harmless but does nothing. Do
+not pad the prompt to reach the threshold; at this volume the saving is cents.
 
-**`object_name` drifted slightly at v6.** A few rows now expand or substitute names
-against the codebook's own instruction to copy verbatim: `30 Doradus` became
-`Tarantula Nebula`, and `WR 140` became `Wolf-Rayet 140`. Minor, and
-`object_name_normalized` absorbs some of it, but the same deterministic approach would
-work — flag any `object_name` absent from the caption and fall back to the v2 value in
-`data/raw_labels.v2.bak.jsonl`.
+**`codebook.md`'s revision log stops at v2**, while the labels were produced at v6. The
+changes from v3 to v6 touched modality and instrument, per the old NEXT.md, but were
+never written up. Reconstruct them from `scripts/compare_label_runs.py` and the v2
+backup in `include/data/labels/archive/` before the codebook changes again.
 
-**`confidence` is unusable and cannot be fixed.** Every kept row is `high`. It stays in
-the schema because it costs nothing, but it will never identify uncertain rows on this
-corpus. Ignore it.
+**`object_name` drifted slightly at v6.** A few rows expand or substitute names against
+the codebook's own instruction to copy verbatim: `30 Doradus` became
+`Tarantula Nebula`, and `WR 140` became `Wolf-Rayet 140`. `object_name_verified`
+already flags them.
 
-**The 596 rejected rows are still labelled at v2.** This is deliberate and almost
-certainly fine, because no codebook revision after v2 touched the gate rules — v3
-through v6 only changed modality and instrument, which are `not_applicable` and
-`unknown` for rejects. Re-labelling them would cost about $2.60 to change nothing. Only
-revisit if a future revision changes a gate rule.
+**`confidence` is unusable and cannot be fixed.** Every kept row is `high`.
 
-## Before any future re-run
+**The 596 rejected rows are still labelled at v2.** This is deliberate: no codebook
+revision after v2 touched the gate rules. Revisit only if a gate rule changes.
 
-**Move the date cutoff in `build/00_extract.py` from `2021-12-25` to `2022-07-12`.**
-The current value is launch day; first light was seven months later. That mistake put
-92 launch-coverage photos into the candidate set which had no chance of passing the
-gate, costing about $0.40. Changing it drops those 92 and keeps every tag-labelled
-photo, so nothing real is lost. I left the current value in place so the committed
-dataset matches the code that produced it.
+## Decisions that could be revisited
 
-**Keep `codebook.md` and the prompt in `build/01_label.py` in sync.** They duplicate
-the same rules in two files and there is no mechanism enforcing agreement. This is the
-main structural hazard in the project. Every labelled row carries `codebook_version`,
-so drift is at least detectable after the fact.
-
-**Leave `strict: true` on the tool definition.** Without it the schema enums are
-advisory, and the model will occasionally emit an out-of-enum value. That happened on
-the first run: five records came back with a modality value in `gate_category`, and
-because anything other than `astronomical_observation` counts as a rejection, five
-genuine observations — the Horsehead Nebula among them — were silently dropped rather
-than raising an error. `02_assemble.py` now checks for this and says so loudly.
-
-**Use `build/compare_versions.py` after any codebook change.** It diffs two label runs
-field by field. Judge a revision by what it actually changed, not by whether it sounded
-like an improvement; v3 looked complete and left two larger defects untouched.
+- **The labelling cutoff is launch (2021-12-25), not first light.** The old NEXT.md
+  proposed moving it to first light (2022-07-12) to save about $0.40. The kept data
+  says no: 10 observations are dated between the two.
+- **The Streamlit explorer and the ResNet/XGBoost classifiers were removed.** The
+  classifiers were trained on the tag labels this project replaced. Both are in git
+  history at commit 0af5a0a if wanted back. Retraining on the golden labels would be
+  the honest version of that work.
+- **Downscaled dataset images and embeddings are not committed.** They are
+  regenerated by the pipeline.
 
 ## Possible extensions
 
-Joining to real science data through `object_name_normalized` is the obvious next step.
-MAST needs no API key, unlike Flickr:
+Joining to real science data through `object_name_normalized` is the obvious next
+step. MAST needs no API key:
 
 ```python
 from astroquery.mast import Observations
 Observations.query_object("NGC 3132", radius="0.02 deg")
 ```
 
-Note that M51 is also NGC 5194, and unifying designations across catalogues needs a
+Note that M51 is also NGC 5194, so unifying designations across catalogues needs a
 cross-reference lookup that the normaliser does not attempt.
 
-If the dataset is ever rebuilt repeatedly, the Batch API halves the cost, at the price
-of writing and debugging a polling loop. At around $5 a run that was not worth it once.
-It would be worth it at five runs.
-
-## Resuming
-
-```bash
-cd /Users/rk/ds/jwst-golden
-export ANTHROPIC_API_KEY=...          # or put it in .env, which is gitignored
-
-python build/01_label.py --backend api --model claude-haiku-4-5 --vision
-python build/02_assemble.py --images
-python build/03_review.py --n 100
-```
-
-Labelling appends to `data/raw_labels.jsonl` and skips any `photo_id` already present,
-so it is safe to interrupt and rerun; it picks up where it stopped and re-bills
-nothing. To force a re-label, delete those rows from the JSONL first and rerun.
+If the dataset is ever relabelled wholesale, the Batch API halves the cost.

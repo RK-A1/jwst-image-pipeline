@@ -1,90 +1,67 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
-## Project Overview
+## Project
 
-Local data pipeline on macOS (M4 MacBook Air) that ingests James Webb Space Telescope photos from Flickr, stores metadata and image embeddings in DuckDB, and trains image classifiers. Orchestrated by Apache Airflow via Astro CLI.
+An Airflow (Astro CLI) pipeline that ingests the NASA Webb Flickr account into DuckDB,
+embeds images with ResNet50, labels them with Claude, and publishes a curated dataset
+of real observations to `include/data/dataset/`. It is a portfolio project: code
+quality, tests and clear engineering decisions matter as much as the output.
 
-## Common Commands
+## Commands
 
 ```bash
-# Start/stop local Airflow (Docker-based)
-astro dev start
+astro dev start                      # Airflow UI at http://localhost:8080
 astro dev stop
+astro dev pytest                     # tests inside the runtime image (includes torch)
+astro dev run dags trigger jwst_dataset
 
-# Trigger DAGs manually
-astro dev run airflow dags trigger jwst_flickr_ingest
-astro dev run airflow dags trigger jwst_feature_extraction
-astro dev run airflow dags trigger jwst_train_classifiers
-
-# Airflow UI: http://localhost:8080  (admin / admin)
-
-# Tag consolidation (runs outside Airflow, on host)
-python include/tag_consolidation.py            # dry-run
-python include/tag_consolidation.py --apply    # write labels to DB
-
-# Streamlit explorer app
-streamlit run app.py
-
-# Query DuckDB directly
-duckdb include/jwst.duckdb "SELECT count(*) FROM photos"
+.venv/bin/pytest                     # tests on the host; torch test skips
+duckdb include/data/warehouse/jwst.duckdb "SELECT count(*) FROM photos"
+python scripts/compare_label_runs.py # diff two label runs after a codebook change
 ```
 
-There are no tests in this project.
+## Layout
 
-## Architecture
+- `dags/` — orchestration only. Tasks import from `include.jwst_pipeline` inside the
+  task function so DAG parsing stays fast.
+- `include/jwst_pipeline/` — all logic. Must never import Airflow, except `assets.py`.
+- `include/data/` — all state. Only `dataset/` outputs and `labels/raw_labels.jsonl`
+  are tracked in git; the warehouse and the 18 GB of images are local.
+- `tests/` — `conftest.py` points `JWST_DATA_DIR` at a temp dir for every test.
 
-```
-Flickr API → jwst_flickr_ingest DAG → DuckDB (photos table) + include/images/
-                                            ↓
-                              jwst_feature_extraction DAG → embeddings in DuckDB
-                                            ↓
-                         tag_consolidation.py → canonical_label in DuckDB
-                                            ↓
-                         jwst_train_classifiers DAG → models/ + training_runs table
-                                            ↓
-                     predict_labels (end of ingest DAG) → predicted_label in DuckDB
-```
+## Rules that are easy to break
 
-### Key modules
-
-- **`include/db.py`** — DuckDB connection helper (`get_conn()`) and `init_schema()`. All DB access goes through this. `DB_PATH` points to `include/jwst.duckdb`.
-- **`include/tag_consolidation.py`** — Maps Flickr tags to canonical labels using ordered `TAG_RULES`. First matching rule wins. Run as a standalone script, not an Airflow task.
-- **`app.py`** — Streamlit explorer (read-only DB connection). Four pages: Overview, Photo Browser, Similarity Search, Model Performance.
-
-### DAGs (`dags/`)
-
-| DAG | Schedule | Purpose |
-|-----|----------|---------|
-| `jwst_flickr_ingest` | `@daily` | Fetch all Flickr IDs, diff against DB, download + upsert new photos, predict labels |
-| `jwst_feature_extraction` | `@daily` | ResNet50 embeddings for photos missing them (dynamic task mapping, batches of 32) |
-| `jwst_train_classifiers` | Manual | Parallel XGBoost + fine-tuned ResNet50 training → compare_models |
-
-### DuckDB Schema
-
-Two tables: `photos` (photo_id PK, title, description, tags TEXT[], image_path, date_taken, embedding FLOAT[] 2048-dim, canonical_label, predicted_label) and `training_runs` (run_id PK, ts, model_type, accuracy, f1_score, model_path).
-
-## Key Constraints
-
-- **Astro CLI mounts only `dags/`, `plugins/`, `include/`, `tests/`** — all data (DB, images, models, torch cache) lives under `include/` so it persists to the host filesystem.
-- **DuckDB is single-writer.** Use `get_conn(read_only=True)` for reads; serialize all writes through one task at a time.
-- **`docker-compose.override.yml` does NOT work with Astro CLI** — Astro generates its compose config internally.
-- **MPS backend for PyTorch** — always check `torch.backends.mps.is_available()` before falling back to CPU. DataLoader must use `num_workers=0` on macOS/MPS.
-- **Flickr API** — use `flickr.urls.lookupUser` with the path alias URL (not `flickr.people.findByUsername`). Rate limit: 3600 req/hr; DAG sleeps 0.3s between requests. Ingest DAG diffs all Flickr IDs against DB (no date-based watermark — Flickr `date_taken` is unreliable).
-- **DB image_path convention** — paths stored in DuckDB use the Docker-internal prefix (`/usr/local/airflow/include/images/`). The Streamlit app remaps via `local_image_path()` to the host path.
-- **Predictions below 0.6 confidence** are stored as `unclassified`.
-- **`PIL.Image.MAX_IMAGE_PIXELS = None`** must be set before opening JWST images (they exceed the default decompression bomb limit).
-- **ResNet fine-tuning** freezes layers 1-3, only trains layer4 + fc head. Uses differential LRs (1e-5 backbone / 1e-4 head) and class-weight balancing.
+- **Astro mounts only `dags/`, `plugins/`, `include/`, `tests/`.** State written
+  anywhere else vanishes with the container. `docker-compose.override.yml` did not
+  work with this Astro setup.
+- **`include/data` must stay in `.dockerignore`.** Otherwise the 18 GB image archive
+  goes into the Docker build context.
+- **DuckDB is single-writer, across processes.** Any task that opens the warehouse
+  needs `pool=WAREHOUSE_POOL`; `tests/test_dags.py` enforces this. Do not hold the pool
+  across network calls: split fetching and writing into separate tasks.
+- **Never call a paid API in tests or without being asked.** `jwst_label` is
+  manual-trigger only for this reason. Flickr calls also need the user's go-ahead.
+- **The label log is append-only and is the system of record.** Never rewrite or
+  truncate `raw_labels.jsonl`; relabel by appending, since the latest record per
+  photo wins.
+- **`codebook.md` and `include/jwst_pipeline/codebook.py` must agree.** Change both,
+  bump `CODEBOOK_VERSION`, and run `tests/test_codebook.py`.
+- **Keep `strict: True` on the labelling tool.** Without it, enum values are advisory.
+- **Never put a requests exception message in a log or result without redacting it.**
+  Flickr's API key is a query parameter.
+- **`PIL.Image.MAX_IMAGE_PIXELS = None`** is needed for JWST originals; use
+  `images.open_rgb` / `images.verify` rather than opening images directly.
+- **The DuckDB version is pinned** in both requirements files, because host and
+  container must read the same storage format.
 
 ## Environment
 
-Flickr API key in `.env` at project root (loaded automatically by Astro CLI):
-```
-FLICKR_API_KEY=<your_key>
-```
-`.env` is gitignored. Never commit it.
+`.env` at the project root (gitignored, loaded by Astro): `FLICKR_API_KEY`,
+`ANTHROPIC_API_KEY`. See `.env.example`.
 
-## Claude Code Instructions
+## Git
 
-- Never add `Co-Authored-By: Claude` or any Claude authorship attribution to git commits.
+- Never add `Co-Authored-By: Claude` or any Claude attribution to commits or PRs.
+  Commits are authored by the repository owner only.

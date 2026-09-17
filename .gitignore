@@ -1,22 +1,33 @@
-__pycache__/
-*.pyc
-.DS_Store
-
-# Downscaled image copies — regenerate with `python build/02_assemble.py --images`
-images/
-
-# Regenerable from the source project via build/00_extract.py
-data/candidates.parquet
-data/embeddings.parquet
-
-# Scratch
-build/_*.sh
-data/bench_*.jsonl
-
 # Secrets — never commit
 .env
 .env.local
-review/
 
-# Superseded label run, kept locally for build/compare_versions.py
-data/raw_labels.v2.bak.jsonl
+# Python and tooling
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Astro / Airflow local runtime
+.astro/
+logs/
+airflow.db
+airflow.cfg
+webserver_config.py
+
+# Pipeline data. Everything under include/data is local state except two things:
+# the label log, which records paid model calls, and the published dataset.
+include/data/*
+!include/data/labels/
+include/data/labels/*
+!include/data/labels/raw_labels.jsonl
+!include/data/dataset/
+include/data/dataset/*
+!include/data/dataset/jwst_space_images.parquet
+!include/data/dataset/jwst_space_images.csv
+!include/data/dataset/rejected.parquet
+!include/data/dataset/rejected.csv
+!include/data/dataset/manifest.json

@@ -1,8 +1,14 @@
-astro
 .git
+.venv
 .env
+.astro
+.pytest_cache
+**/__pycache__
 airflow_settings.yaml
 logs/
-.venv
 airflow.db
 airflow.cfg
+
+# 18 GB of images and the warehouse. Astro mounts include/ into the containers at
+# runtime, so the data is visible there without being copied into the image.
+include/data

@@ -1,0 +1,11 @@
+[project]
+name = "jwst-golden"
+version = "0.1.0"
+description = "Airflow pipeline that ingests NASA Webb photos from Flickr and builds a labelled dataset of real observations"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+filterwarnings = ["ignore::DeprecationWarning"]

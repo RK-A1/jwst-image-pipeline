@@ -1,0 +1,33 @@
+{
+  "rows": {
+    "jwst_space_images": 481,
+    "rejected": 596
+  },
+  "labels": 1077,
+  "subjects": {
+    "black_hole": 15,
+    "deep_field": 43,
+    "exoplanet": 37,
+    "galaxy": 129,
+    "galaxy_cluster": 48,
+    "nebula": 57,
+    "other_astronomical": 3,
+    "planetary_nebula": 18,
+    "protoplanetary_disk": 29,
+    "solar_system": 57,
+    "star": 11,
+    "star_cluster": 15,
+    "supernova_remnant": 19
+  },
+  "codebook_versions": {
+    "v2": 594,
+    "v6": 483
+  },
+  "embedding_model": "resnet50-imagenet1k-v2",
+  "sha256": {
+    "jwst_space_images.parquet": "bfd2eb94f87b4793f7035cfcd7137d2910abc2f3f1b53f6a9b61c8d06db24e87",
+    "jwst_space_images.csv": "04701116de0b11dc71b3251facdfd44af609460901d5b8927bff2fcd8d9bcd75",
+    "rejected.parquet": "5990ce2a2e511066286f1404204f626f45c698aac1f1461deed2953b41181fb3",
+    "rejected.csv": "ffa376cfc0547b6ec01eca0fca86b546ebc9337b996142fb1fa7933476cc018c"
+  }
+}
