@@ -87,16 +87,6 @@ something to label:
 astro dev run dags trigger jwst_label --conf '{"max_photos": 50}'
 ```
 
-Without a Flickr key, images can be saved by hand from their Flickr pages instead
-("Large 2048" is ample) and registered with `scripts/import_images.py`, which verifies
-each file and records it for the embedding and dataset DAGs. Captions still come from
-the API, so this fills in images only for photos already ingested.
-
-```bash
-python scripts/import_images.py --list-missing     # what needs a file, with its Flickr page
-python scripts/import_images.py ~/Downloads/jwst   # files named <photo_id>.jpg
-```
-
 ## The dataset
 
 `include/data/dataset/` holds `jwst_space_images.parquet` (and `.csv`), every excluded
@@ -140,7 +130,7 @@ dags/                    orchestration: order, retries, pools, assets
 include/jwst_pipeline/   Flickr client, warehouse, embeddings, labelling, dataset build, checks
 include/data/dataset/    the published dataset (tracked)
 include/data/labels/     every model response (tracked)
-scripts/                 legacy migration, manual image import, label diffs, gallery
+scripts/                 legacy migration, label-run comparison, README gallery
 tests/                   unit, integration and DAG structure tests
 docs/codebook.md         the label definitions the model is prompted with
 docs/NEXT.md             current state and open work
