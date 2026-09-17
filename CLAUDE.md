@@ -20,6 +20,7 @@ astro dev run dags trigger jwst_dataset
 .venv/bin/pytest                     # tests on the host; torch test skips
 duckdb include/data/warehouse/jwst.duckdb "SELECT count(*) FROM photos"
 python scripts/compare_label_runs.py # diff two label runs after a codebook change
+python scripts/import_images.py --list-missing   # photos whose image failed to download
 ```
 
 ## Layout
